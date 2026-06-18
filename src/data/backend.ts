@@ -132,6 +132,12 @@ export async function hasSubmittedToday(
 // Uploads the tally sheet photo to Firebase Storage and returns its public
 // download URL. Path includes campaign/vaccinator/date so files are easy
 // to browse directly in the Storage console if ever needed.
+//
+// IMPORTANT: contentType is set explicitly here. Without it, the Blob's
+// own .type property (which can be empty depending on how the photo was
+// captured) is all the Storage SDK has to go on — and an empty/undefined
+// contentType fails any Storage Rule that checks
+// request.resource.contentType.matches('image/.*').
 async function uploadTallyPhoto(
   photoBlob: Blob,
   campaignId: string,
@@ -140,7 +146,7 @@ async function uploadTallyPhoto(
   const timestamp = Date.now()
   const path = `tally-photos/${campaignId}/${vaccinatorId}/${timestamp}.jpg`
   const storageRef = ref(storage, path)
-  await uploadBytes(storageRef, photoBlob)
+  await uploadBytes(storageRef, photoBlob, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)
 }
 
