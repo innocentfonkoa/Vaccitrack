@@ -10,6 +10,7 @@ import { CampaignSelectScreen } from './screens/CampaignSelectScreen'
 import { CaptureScreen } from './screens/CaptureScreen'
 import { ReviewScreen } from './screens/ReviewScreen'
 import { SubmissionHistoryScreen } from './screens/SubmissionHistoryScreen'
+import DashboardApp from './screens/DashboardApp'
 import type { SelectedLocation } from './components/LocationPicker'
 import type { Campaign, Vaccinator, TallySubmission, ExtractedTallySheet } from './types'
 import './app.css'
@@ -22,6 +23,11 @@ interface CapturedData {
 }
 
 export default function App() {
+  // Route /dashboard to the office dashboard app
+  if (window.location.pathname.startsWith('/dashboard')) {
+    return <DashboardApp />
+  }
+
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [vaccinator, setVaccinator] = useState<Vaccinator | null>(null)
   const [submittedToday, setSubmittedToday] = useState(false)
