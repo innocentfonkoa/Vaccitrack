@@ -11,7 +11,7 @@ import { getStorage } from 'firebase/storage'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyQk9KwMWp49xuF8bFR4RfGDk2j0e83LItJw',
+  apiKey: 'AIzaSyDkzWHWp49xuF0bfR4RfGDk2j0e03LItJw',
   authDomain: 'vaccitrack-336be.firebaseapp.com',
   projectId: 'vaccitrack-336be',
   storageBucket: 'vaccitrack-336be.firebasestorage.app',
