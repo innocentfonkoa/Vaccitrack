@@ -33,6 +33,12 @@ body {
   min-height: 100vh;
 }
 
+/* Dashboard override — removes the 480px mobile constraint for desktop */
+#root:has(.dashboard-root) {
+  max-width: 100%;
+  padding: 0;
+}
+
 .loading-screen {
   display: flex;
   align-items: center;

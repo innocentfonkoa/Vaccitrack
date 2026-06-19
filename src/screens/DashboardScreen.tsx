@@ -172,7 +172,7 @@ export default function DashboardScreen({ user }: Props) {
   const breadcrumb = [user.state, user.role === 'lga_staff' ? user.lga : lgaFilter !== 'all' ? lgaFilter : null, wardFilter !== 'all' ? wardFilter : null].filter(Boolean).join(' → ')
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f4f0', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div className="dashboard-root" style={{ minHeight: '100vh', background: '#f0f4f0', fontFamily: "'Inter', -apple-system, sans-serif" }}>
 
       {/* ── Top bar ── */}
       <div style={{ background: '#fff', borderBottom: '1px solid #e5e7e5', position: 'sticky', top: 0, zIndex: 100 }}>
