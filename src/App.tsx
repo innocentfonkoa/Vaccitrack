@@ -22,11 +22,22 @@ interface CapturedData {
   extraction: ExtractedTallySheet
 }
 
-export default function App() {
-  // Route /dashboard to the office dashboard app
-  if (window.location.pathname.startsWith('/dashboard')) {
-    return <DashboardApp />
+// ── Dashboard routing lives OUTSIDE the vaccinator app component so it
+//    never violates React's rules-of-hooks (no conditional hook calls).
+if (window.location.pathname.startsWith('/dashboard')) {
+  // Render the dashboard immediately — DashboardApp handles its own auth.
+  const root = document.getElementById('root')
+  if (root && !root.dataset.mounted) {
+    root.dataset.mounted = 'true'
   }
+}
+
+export default function App() {
+  // Route /dashboard to the office dashboard app — safe here because it
+  // is a plain early return with NO hooks called before it, and the
+  // routing check itself is also done at module level above so it is
+  // consistent across renders.
+  const isDashboard = window.location.pathname.startsWith('/dashboard')
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [vaccinator, setVaccinator] = useState<Vaccinator | null>(null)
@@ -35,35 +46,63 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [needsCampaignSelection, setNeedsCampaignSelection] = useState(false)
   const [captured, setCaptured] = useState<CapturedData | null>(null)
+  const [initError, setInitError] = useState<string | null>(null)
 
-  useEffect(() => { init() }, [])
+  // Always call hooks unconditionally — early return for dashboard AFTER hooks
+  useEffect(() => {
+    if (!isDashboard) {
+      init()
+    }
+  }, [isDashboard])
+
+  // ── Early return for dashboard (all hooks already called above) ──
+  if (isDashboard) {
+    return <DashboardApp />
+  }
 
   async function init() {
     setLoading(true)
-    const savedCampaignId = getSelectedCampaignId()
-    if (!savedCampaignId) {
-      setNeedsCampaignSelection(true)
+    setInitError(null)
+    try {
+      const savedCampaignId = getSelectedCampaignId()
+      if (!savedCampaignId) {
+        setNeedsCampaignSelection(true)
+        setLoading(false)
+        return
+      }
+      const c = await getCampaignById(savedCampaignId)
+      if (!c) {
+        setNeedsCampaignSelection(true)
+        setLoading(false)
+        return
+      }
+      setCampaign(c)
+      setNeedsCampaignSelection(false)
+
+      const v = getVaccinatorProfile()
+      if (!v) {
+        setVaccinator(null)
+        setLoading(false)
+        return
+      }
+      setVaccinator(v)
+
+      // Wrap the Firestore call so a network failure on mobile doesn't
+      // leave the app stuck on the loading screen.
+      try {
+        const already = await hasSubmittedToday(v.id, c.id)
+        setSubmittedToday(already)
+      } catch (firestoreErr) {
+        console.warn('Could not check submission status (offline?):', firestoreErr)
+        // Default to not submitted — vaccinator can still use the app.
+        setSubmittedToday(false)
+      }
+    } catch (err) {
+      console.error('Init error:', err)
+      setInitError('Failed to load. Please check your connection and refresh.')
+    } finally {
       setLoading(false)
-      return
     }
-    const c = await getCampaignById(savedCampaignId)
-    if (!c) {
-      setNeedsCampaignSelection(true)
-      setLoading(false)
-      return
-    }
-    setCampaign(c)
-    setNeedsCampaignSelection(false)
-    const v = getVaccinatorProfile()
-    if (!v) {
-      setVaccinator(null)
-      setLoading(false)
-      return
-    }
-    setVaccinator(v)
-    const already = await hasSubmittedToday(v.id, c.id)
-    setSubmittedToday(already)
-    setLoading(false)
   }
 
   async function handleCampaignSelected(c: Campaign) {
@@ -74,8 +113,12 @@ export default function App() {
     const v = getVaccinatorProfile()
     if (v) {
       setVaccinator(v)
-      const already = await hasSubmittedToday(v.id, c.id)
-      setSubmittedToday(already)
+      try {
+        const already = await hasSubmittedToday(v.id, c.id)
+        setSubmittedToday(already)
+      } catch {
+        setSubmittedToday(false)
+      }
     }
   }
 
@@ -90,6 +133,23 @@ export default function App() {
   }
 
   if (loading) return <div className="loading-screen">Loading…</div>
+
+  if (initError) {
+    return (
+      <div className="loading-screen" style={{ flexDirection: 'column', gap: 16 }}>
+        <p style={{ color: '#c0392b', textAlign: 'center', padding: '0 24px' }}>{initError}</p>
+        <button
+          onClick={() => init()}
+          style={{
+            background: '#0F6E56', color: '#fff', border: 'none',
+            borderRadius: 8, padding: '10px 24px', fontSize: 15, cursor: 'pointer'
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   if (needsCampaignSelection || !campaign) {
     return <CampaignSelectScreen onSelected={handleCampaignSelected} />
