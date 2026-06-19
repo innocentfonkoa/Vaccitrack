@@ -12,12 +12,10 @@ interface Props {
     photoBlob: Blob | null
     extraction: ExtractedTallySheet
   }) => void
+  onBack: () => void
 }
 
-// Screen 1: location selection + snapping the photo only.
-// Once the AI extraction finishes, control hands off to ReviewScreen
-// (a separate screen, per the user's request) via onCaptured.
-export function CaptureScreen({ campaign, vaccinator, onCaptured }: Props) {
+export function CaptureScreen({ campaign, vaccinator, onCaptured, onBack }: Props) {
   const [location, setLocation] = useState<SelectedLocation | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [extracting, setExtracting] = useState(false)
@@ -42,6 +40,18 @@ export function CaptureScreen({ campaign, vaccinator, onCaptured }: Props) {
   return (
     <div className="capture-screen">
       <div className="campaign-tag">
+        <button
+          onClick={onBack}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 13, color: '#1a6b3c', fontWeight: 600,
+            padding: '2px 6px', marginRight: 6, borderRadius: 6,
+            display: 'inline-flex', alignItems: 'center', gap: 4
+          }}
+          aria-label="Switch campaign"
+        >
+          ← Back
+        </button>
         <span className="campaign-pill">{campaign.name}</span>
         <span className="vaccinator-tag">
           Team {vaccinator.teamCode} · {vaccinator.name}

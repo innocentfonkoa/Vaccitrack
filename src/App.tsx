@@ -36,22 +36,16 @@ export default function App() {
   const [needsCampaignSelection, setNeedsCampaignSelection] = useState(false)
   const [captured, setCaptured] = useState<CapturedData | null>(null)
 
-  useEffect(() => {
-    init()
-  }, [])
+  useEffect(() => { init() }, [])
 
   async function init() {
     setLoading(true)
-
-    // Campaign selection comes first. getSelectedCampaignId() returns null
-    // if the saved choice is from a previous day (Option A behavior).
     const savedCampaignId = getSelectedCampaignId()
     if (!savedCampaignId) {
       setNeedsCampaignSelection(true)
       setLoading(false)
       return
     }
-
     const c = await getCampaignById(savedCampaignId)
     if (!c) {
       setNeedsCampaignSelection(true)
@@ -60,16 +54,13 @@ export default function App() {
     }
     setCampaign(c)
     setNeedsCampaignSelection(false)
-
     const v = getVaccinatorProfile()
     if (!v) {
-      // Campaign chosen but no profile yet — VaccinatorSetupScreen handles this
       setVaccinator(null)
       setLoading(false)
       return
     }
     setVaccinator(v)
-
     const already = await hasSubmittedToday(v.id, c.id)
     setSubmittedToday(already)
     setLoading(false)
@@ -80,7 +71,6 @@ export default function App() {
     setSubmittedToday(false)
     setJustSubmitted(null)
     setNeedsCampaignSelection(false)
-
     const v = getVaccinatorProfile()
     if (v) {
       setVaccinator(v)
@@ -93,9 +83,13 @@ export default function App() {
     setVaccinator(v)
   }
 
-  if (loading) {
-    return <div className="loading-screen">Loading…</div>
+  function handleBackToCampaign() {
+    setCampaign(null)
+    setNeedsCampaignSelection(true)
+    setCaptured(null)
   }
+
+  if (loading) return <div className="loading-screen">Loading…</div>
 
   if (needsCampaignSelection || !campaign) {
     return <CampaignSelectScreen onSelected={handleCampaignSelected} />
@@ -121,7 +115,6 @@ export default function App() {
     )
   }
 
-  // Screen 2 — only shown once a photo has been captured and read.
   if (captured) {
     return (
       <ReviewScreen
@@ -141,12 +134,12 @@ export default function App() {
     )
   }
 
-  // Screen 1 — location selection + snap.
   return (
     <CaptureScreen
       campaign={campaign}
       vaccinator={vaccinator}
       onCaptured={setCaptured}
+      onBack={handleBackToCampaign}
     />
   )
 }
