@@ -41,6 +41,7 @@ export function ReviewScreen({
         {
           campaignId: campaign.id,
           vaccinatorId: vaccinator.id,
+          vaccinatorName: vaccinator.name,
           teamCode: vaccinator.teamCode,
           phone: vaccinator.phone ?? '',
           recorderName: vaccinator.recorderName ?? '',

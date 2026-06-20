@@ -144,7 +144,8 @@ async function uploadTallyPhoto(
   vaccinatorId: string
 ): Promise<string> {
   const timestamp = Date.now()
-  const path = `tally-photos/${campaignId}/${vaccinatorId}/${timestamp}.jpg`
+  const date = new Date().toISOString().slice(0, 10)
+  const path = `tally-photos/${campaignId}/${date}/${vaccinatorId}/${timestamp}.jpg`
   const storageRef = ref(storage, path)
   await uploadBytes(storageRef, photoBlob, { contentType: 'image/jpeg' })
   return getDownloadURL(storageRef)

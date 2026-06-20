@@ -50,6 +50,7 @@ export interface TallySubmission {
   id: string
   campaignId: string
   vaccinatorId: string
+  vaccinatorName: string
   teamCode: string
   phone: string
   recorderName: string

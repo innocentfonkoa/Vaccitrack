@@ -379,7 +379,7 @@ export default function DashboardScreen({ user }: Props) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #f0f0f0' }}>
-                          {['Team', 'LGA', 'Ward', 'Settlement', 'Male', 'Female', 'Total', 'Confidence', 'Status', 'Time'].map(h => (
+                          {['Team', 'Vaccinator', 'Phone', 'Recorder', 'LGA', 'Ward', 'Settlement', 'Male', 'Female', 'Total', 'Status', 'Time'].map(h => (
                             <th key={h} style={{ textAlign: 'left', padding: '8px 12px', fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
@@ -388,17 +388,15 @@ export default function DashboardScreen({ user }: Props) {
                         {filtered.map((s, i) => (
                           <tr key={s.id} style={{ borderBottom: '1px solid #f5f5f5', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
                             <td style={{ padding: '9px 12px', fontWeight: 600, whiteSpace: 'nowrap' }}>{s.teamCode}</td>
+                            <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>{s.vaccinatorName ?? '—'}</td>
+                            <td style={{ padding: '9px 12px', color: '#555', whiteSpace: 'nowrap' }}>{s.phone ?? '—'}</td>
+                            <td style={{ padding: '9px 12px', color: '#555', whiteSpace: 'nowrap' }}>{s.recorderName ?? '—'}</td>
                             <td style={{ padding: '9px 12px', color: '#555' }}>{s.lga}</td>
                             <td style={{ padding: '9px 12px', color: '#555' }}>{s.ward}</td>
                             <td style={{ padding: '9px 12px', color: '#555', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.settlement}</td>
                             <td style={{ padding: '9px 12px' }}>{s.extraction?.totalRow?.male ?? '—'}</td>
                             <td style={{ padding: '9px 12px' }}>{s.extraction?.totalRow?.female ?? '—'}</td>
                             <td style={{ padding: '9px 12px', fontWeight: 700, color: GREEN }}>{s.extraction?.totalVaccinatedToday ?? '—'}</td>
-                            <td style={{ padding: '9px 12px' }}>
-                              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600, background: s.extraction?.confidence === 'high' ? '#e8f5e9' : s.extraction?.confidence === 'medium' ? '#fff8e1' : '#fff0f0', color: s.extraction?.confidence === 'high' ? GREEN : s.extraction?.confidence === 'medium' ? ORANGE : RED }}>
-                                {s.extraction?.confidence}
-                              </span>
-                            </td>
                             <td style={{ padding: '9px 12px' }}>
                               <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600, background: s.status === 'synced' ? '#e8f5e9' : s.status === 'needs_review' ? '#fff8e1' : '#f5f5f5', color: s.status === 'synced' ? GREEN : s.status === 'needs_review' ? ORANGE : '#888' }}>
                                 {s.status?.replace('_', ' ')}
