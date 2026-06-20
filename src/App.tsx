@@ -3,11 +3,12 @@ import {
   getCampaignById,
   getSelectedCampaignId,
   getVaccinatorProfile,
-  hasSubmittedToday
+  getSubmissionsForVaccinator
 } from './data/backend'
 import { VaccinatorSetupScreen } from './screens/VaccinatorSetupScreen'
 import { CampaignSelectScreen } from './screens/CampaignSelectScreen'
 import { CaptureScreen } from './screens/CaptureScreen'
+import { TallyEntryScreen } from './screens/TallyEntryScreen'
 import { ReviewScreen } from './screens/ReviewScreen'
 import { SubmissionHistoryScreen } from './screens/SubmissionHistoryScreen'
 import DashboardApp from './screens/DashboardApp'
@@ -15,121 +16,79 @@ import type { SelectedLocation } from './components/LocationPicker'
 import type { Campaign, Vaccinator, TallySubmission, ExtractedTallySheet } from './types'
 import './app.css'
 
-interface CapturedData {
-  location: SelectedLocation
-  photoUrl: string | null
+type AppStep = 'location' | 'tally-entry' | 'review' | 'submitted'
+
+interface TallyData {
   photoBlob: Blob | null
+  photoUrl: string | null
   extraction: ExtractedTallySheet
 }
 
-// ── Dashboard routing lives OUTSIDE the vaccinator app component so it
-//    never violates React's rules-of-hooks (no conditional hook calls).
-if (window.location.pathname.startsWith('/dashboard')) {
-  // Render the dashboard immediately — DashboardApp handles its own auth.
-  const root = document.getElementById('root')
-  if (root && !root.dataset.mounted) {
-    root.dataset.mounted = 'true'
-  }
-}
+const isDashboard = window.location.pathname.startsWith('/dashboard')
 
 export default function App() {
-  // Route /dashboard to the office dashboard app — safe here because it
-  // is a plain early return with NO hooks called before it, and the
-  // routing check itself is also done at module level above so it is
-  // consistent across renders.
-  const isDashboard = window.location.pathname.startsWith('/dashboard')
-
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [vaccinator, setVaccinator] = useState<Vaccinator | null>(null)
-  const [submittedToday, setSubmittedToday] = useState(false)
-  const [justSubmitted, setJustSubmitted] = useState<TallySubmission | null>(null)
   const [loading, setLoading] = useState(true)
   const [needsCampaignSelection, setNeedsCampaignSelection] = useState(false)
-  const [captured, setCaptured] = useState<CapturedData | null>(null)
   const [initError, setInitError] = useState<string | null>(null)
 
-  // Always call hooks unconditionally — early return for dashboard AFTER hooks
-  useEffect(() => {
-    if (!isDashboard) {
-      init()
-    }
-  }, [isDashboard])
+  const [step, setStep] = useState<AppStep>('location')
+  const [location, setLocation] = useState<SelectedLocation | null>(null)
+  const [tallyData, setTallyData] = useState<TallyData | null>(null)
+  const [justSubmitted, setJustSubmitted] = useState<TallySubmission | null>(null)
+  const [submittedSettlements, setSubmittedSettlements] = useState<string[]>([])
 
-  // ── Early return for dashboard (all hooks already called above) ──
-  if (isDashboard) {
-    return <DashboardApp />
-  }
+  useEffect(() => {
+    if (!isDashboard) init()
+  }, [])
+
+  if (isDashboard) return <DashboardApp />
 
   async function init() {
     setLoading(true)
     setInitError(null)
     try {
       const savedCampaignId = getSelectedCampaignId()
-      if (!savedCampaignId) {
-        setNeedsCampaignSelection(true)
-        setLoading(false)
-        return
-      }
+      if (!savedCampaignId) { setNeedsCampaignSelection(true); setLoading(false); return }
       const c = await getCampaignById(savedCampaignId)
-      if (!c) {
-        setNeedsCampaignSelection(true)
-        setLoading(false)
-        return
-      }
+      if (!c) { setNeedsCampaignSelection(true); setLoading(false); return }
       setCampaign(c)
       setNeedsCampaignSelection(false)
-
       const v = getVaccinatorProfile()
-      if (!v) {
-        setVaccinator(null)
-        setLoading(false)
-        return
-      }
+      if (!v) { setVaccinator(null); setLoading(false); return }
       setVaccinator(v)
-
-      // Wrap the Firestore call so a network failure on mobile doesn't
-      // leave the app stuck on the loading screen.
       try {
-        const already = await hasSubmittedToday(v.id, c.id)
-        setSubmittedToday(already)
-      } catch (firestoreErr) {
-        console.warn('Could not check submission status (offline?):', firestoreErr)
-        // Default to not submitted — vaccinator can still use the app.
-        setSubmittedToday(false)
-      }
+        const today = new Date().toISOString().slice(0, 10)
+        const subs = await getSubmissionsForVaccinator(v.id, c.id)
+        setSubmittedSettlements(subs.filter(s => s.submittedAt.slice(0, 10) === today).map(s => s.settlement))
+      } catch { setSubmittedSettlements([]) }
     } catch (err) {
       console.error('Init error:', err)
       setInitError('Failed to load. Please check your connection and refresh.')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   async function handleCampaignSelected(c: Campaign) {
     setCampaign(c)
-    setSubmittedToday(false)
-    setJustSubmitted(null)
     setNeedsCampaignSelection(false)
+    setStep('location')
     const v = getVaccinatorProfile()
     if (v) {
       setVaccinator(v)
       try {
-        const already = await hasSubmittedToday(v.id, c.id)
-        setSubmittedToday(already)
-      } catch {
-        setSubmittedToday(false)
-      }
+        const today = new Date().toISOString().slice(0, 10)
+        const subs = await getSubmissionsForVaccinator(v.id, c.id)
+        setSubmittedSettlements(subs.filter(s => s.submittedAt.slice(0, 10) === today).map(s => s.settlement))
+      } catch { setSubmittedSettlements([]) }
     }
   }
 
-  function handleVaccinatorSaved(v: Vaccinator) {
-    setVaccinator(v)
-  }
-
-  function handleBackToCampaign() {
-    setCampaign(null)
-    setNeedsCampaignSelection(true)
-    setCaptured(null)
+  function handleNewSettlement() {
+    setStep('location')
+    setLocation(null)
+    setTallyData(null)
+    setJustSubmitted(null)
   }
 
   if (loading) return <div className="loading-screen">Loading…</div>
@@ -138,58 +97,50 @@ export default function App() {
     return (
       <div className="loading-screen" style={{ flexDirection: 'column', gap: 16 }}>
         <p style={{ color: '#c0392b', textAlign: 'center', padding: '0 24px' }}>{initError}</p>
-        <button
-          onClick={() => init()}
-          style={{
-            background: '#0F6E56', color: '#fff', border: 'none',
-            borderRadius: 8, padding: '10px 24px', fontSize: 15, cursor: 'pointer'
-          }}
-        >
-          Retry
-        </button>
+        <button onClick={() => init()} style={{ background: '#0F6E56', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 15, cursor: 'pointer' }}>Retry</button>
       </div>
     )
   }
 
-  if (needsCampaignSelection || !campaign) {
-    return <CampaignSelectScreen onSelected={handleCampaignSelected} />
-  }
+  if (needsCampaignSelection || !campaign) return <CampaignSelectScreen onSelected={handleCampaignSelected} />
+  if (!vaccinator) return <VaccinatorSetupScreen onSaved={v => setVaccinator(v)} />
 
-  if (!vaccinator) {
-    return <VaccinatorSetupScreen onSaved={handleVaccinatorSaved} />
-  }
-
-  if (submittedToday || justSubmitted) {
+  if (step === 'submitted' && justSubmitted) {
     return (
       <SubmissionHistoryScreen
         campaign={campaign}
         vaccinator={vaccinator}
         justSubmitted={justSubmitted}
-        onCampaignSwitch={() => {
-          setCampaign(null)
-          setJustSubmitted(null)
-          setSubmittedToday(false)
-          setNeedsCampaignSelection(true)
-        }}
+        onCampaignSwitch={() => { setCampaign(null); setNeedsCampaignSelection(true); setStep('location'); setJustSubmitted(null) }}
+        onNewSettlement={handleNewSettlement}
       />
     )
   }
 
-  if (captured) {
+  if (step === 'review' && location && tallyData) {
     return (
       <ReviewScreen
         campaign={campaign}
         vaccinator={vaccinator}
-        location={captured.location}
-        photoUrl={captured.photoUrl}
-        photoBlob={captured.photoBlob}
-        extraction={captured.extraction}
+        location={location}
+        photoUrl={tallyData.photoUrl}
+        photoBlob={tallyData.photoBlob}
+        extraction={tallyData.extraction}
         onSubmitted={sub => {
           setJustSubmitted(sub)
-          setSubmittedToday(true)
-          setCaptured(null)
+          setSubmittedSettlements(prev => [...prev, sub.settlement])
+          setStep('submitted')
         }}
-        onRetake={() => setCaptured(null)}
+        onBack={() => setStep('tally-entry')}
+      />
+    )
+  }
+
+  if (step === 'tally-entry' && location) {
+    return (
+      <TallyEntryScreen
+        onNext={data => { setTallyData(data); setStep('review') }}
+        onBack={() => setStep('location')}
       />
     )
   }
@@ -198,8 +149,9 @@ export default function App() {
     <CaptureScreen
       campaign={campaign}
       vaccinator={vaccinator}
-      onCaptured={setCaptured}
-      onBack={handleBackToCampaign}
+      submittedSettlements={submittedSettlements}
+      onCaptured={loc => { setLocation(loc); setStep('tally-entry') }}
+      onBack={() => { setCampaign(null); setNeedsCampaignSelection(true) }}
     />
   )
 }

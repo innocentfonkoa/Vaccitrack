@@ -11,12 +11,17 @@ interface Props {
   photoBlob: Blob | null
   extraction: ExtractedTallySheet
   onSubmitted: (submission: TallySubmission) => void
-  onRetake: () => void
+  onBack: () => void
 }
 
-// Screen 2: appears only after a photo has been captured and read. Shows
-// the location/team context, the Male/Female breakdown, and the headline
-// total — with manual entry fields when the AI couldn't confirm a total.
+const ROWS = [
+  { key: 'zeroDose9to11'   as const, label: '9–11 months (zero dose)' },
+  { key: 'zeroDose12to23'  as const, label: '12–23 months (zero dose)' },
+  { key: 'otherDose9to11'  as const, label: '9–11 months (other dose)' },
+  { key: 'otherDose12to23' as const, label: '12–23 months (other dose)' },
+  { key: 'otherDose24to59' as const, label: '24–59 months (other dose)' },
+]
+
 export function ReviewScreen({
   campaign,
   vaccinator,
@@ -25,40 +30,11 @@ export function ReviewScreen({
   photoBlob,
   extraction,
   onSubmitted,
-  onRetake
+  onBack,
 }: Props) {
-  const [manualTotal, setManualTotal] = useState(extraction.totalVaccinatedToday?.toString() ?? '')
-  const [manualMale, setManualMale] = useState(extraction.totalRow.male?.toString() ?? '')
-  const [manualFemale, setManualFemale] = useState(extraction.totalRow.female?.toString() ?? '')
   const [submitting, setSubmitting] = useState(false)
 
-  const isLowConfidence = extraction.confidence === 'low'
-
-  function effectiveTotal(): number | null {
-    if (isLowConfidence) {
-      const parsed = Number(manualTotal)
-      return manualTotal && !Number.isNaN(parsed) ? parsed : null
-    }
-    return extraction.totalVaccinatedToday
-  }
-
-  function effectiveMaleFemale(): { male: number | null; female: number | null } {
-    if (isLowConfidence) {
-      const male = manualMale ? Number(manualMale) : null
-      const female = manualFemale ? Number(manualFemale) : null
-      return {
-        male: male !== null && !Number.isNaN(male) ? male : null,
-        female: female !== null && !Number.isNaN(female) ? female : null
-      }
-    }
-    return extraction.totalRow
-  }
-
-  async function handleConfirmSubmit() {
-    const total = effectiveTotal()
-    if (total === null) return
-    const { male, female } = effectiveMaleFemale()
-
+  async function handleSubmit() {
     setSubmitting(true)
     try {
       const submission = await submitTallySheet(
@@ -66,6 +42,8 @@ export function ReviewScreen({
           campaignId: campaign.id,
           vaccinatorId: vaccinator.id,
           teamCode: vaccinator.teamCode,
+          phone: vaccinator.phone ?? '',
+          recorderName: vaccinator.recorderName ?? '',
           state: location.state,
           lga: location.lga,
           ward: location.ward,
@@ -73,12 +51,8 @@ export function ReviewScreen({
           settlementIsCustom: location.settlementIsCustom,
           submittedAt: new Date().toISOString(),
           photoUrl,
-          extraction: {
-            ...extraction,
-            totalRow: { male, female },
-            totalVaccinatedToday: total
-          },
-          status: isLowConfidence ? 'needs_review' : 'synced',
+          extraction,
+          status: 'synced',
           resolvedTotal: null,
           resolvedBy: null,
           resolvedAt: null
@@ -93,95 +67,173 @@ export function ReviewScreen({
     }
   }
 
+  const st = extraction.subTotals
+
   return (
     <div className="review-screen">
-      <div className="campaign-tag">
-        <span className="campaign-pill">{campaign.name}</span>
-        <span className="vaccinator-tag">
-          Team {vaccinator.teamCode} · {vaccinator.name}
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <button
+          onClick={onBack}
+          disabled={submitting}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 13, color: '#1a6b3c', fontWeight: 600,
+            padding: '2px 6px', borderRadius: 6,
+            display: 'inline-flex', alignItems: 'center', gap: 4
+          }}
+        >
+          ← Back
+        </button>
+        <span style={{ fontSize: 13, color: '#888' }}>Step 3 of 3 — Review</span>
       </div>
 
-      <section className="step">
-        <h2 className="step-title">
-          <span className="step-num">3</span> Review and submit
-        </h2>
-        <div className="card">
-          {photoUrl && <img src={photoUrl} alt="Captured tally sheet" className="photo-preview" />}
-          <p className="location-breadcrumb">
-            {location.state} &gt; {location.lga} &gt; {location.ward} &gt;{' '}
+      <div className="card">
+        {/* Campaign + vaccinator info */}
+        <div style={{
+          background: '#f7faf8',
+          borderRadius: 8,
+          padding: '10px 12px',
+          marginBottom: 14
+        }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#1a6b3c' }}>
+            {campaign.name}
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#666' }}>
+            Team {vaccinator.teamCode} · {vaccinator.name}
+          </p>
+          {vaccinator.phone && (
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#666' }}>
+              📞 {vaccinator.phone}
+            </p>
+          )}
+          {vaccinator.recorderName && (
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#666' }}>
+              ✏️ Recorder: {vaccinator.recorderName}
+            </p>
+          )}
+        </div>
+
+        {/* Location */}
+        <div style={{
+          background: '#f7faf8',
+          borderRadius: 8,
+          padding: '10px 12px',
+          marginBottom: 14
+        }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#888' }}>Location</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#333' }}>
+            {location.state} › {location.lga} › {location.ward} ›{' '}
             <strong>{location.settlement}</strong>
           </p>
+        </div>
 
-          {!isLowConfidence ? (
-            <>
-              <div className="breakdown-row">
-                <div className="breakdown-item">
-                  <div className="breakdown-value">{extraction.totalRow.male ?? '—'}</div>
-                  <div className="breakdown-label">Male</div>
-                </div>
-                <div className="breakdown-item">
-                  <div className="breakdown-value">{extraction.totalRow.female ?? '—'}</div>
-                  <div className="breakdown-label">Female</div>
-                </div>
-              </div>
-              <div className="result-hero">
-                <div className="result-num">{extraction.totalVaccinatedToday}</div>
-                <div className="result-label">children vaccinated today</div>
-              </div>
-            </>
-          ) : (
-            <div className="needs-review-box">
-              <p className="needs-review-title">⚠ Could not confirm the total automatically</p>
-              <p className="needs-review-detail">
-                The grand total and total row didn't agree on this sheet. Please check the
-                photo and enter the correct numbers.
-              </p>
-              <div className="manual-mf-row">
-                <div className="field-half">
-                  <label htmlFor="manual-male">Male</label>
-                  <input
-                    id="manual-male"
-                    type="number"
-                    value={manualMale}
-                    onChange={e => setManualMale(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="field-half">
-                  <label htmlFor="manual-female">Female</label>
-                  <input
-                    id="manual-female"
-                    type="number"
-                    value={manualFemale}
-                    onChange={e => setManualFemale(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <label htmlFor="manual-total">Total vaccinated today</label>
-              <input
-                id="manual-total"
-                type="number"
-                value={manualTotal}
-                onChange={e => setManualTotal(e.target.value)}
-                placeholder="Enter total"
-              />
-            </div>
-          )}
+        {/* Photo preview */}
+        {photoUrl && (
+          <img
+            src={photoUrl}
+            alt="Tally sheet"
+            className="photo-preview"
+            style={{ marginBottom: 14 }}
+          />
+        )}
 
+        {/* Numbers table */}
+        <div style={{ marginBottom: 14 }}>
+          <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 600, color: '#555', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Vaccination numbers
+          </p>
+
+          {/* Header */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 60px 60px',
+            gap: 6,
+            paddingBottom: 6,
+            borderBottom: '1px solid #eee',
+            marginBottom: 6
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#888' }}>Age group</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#1a6b3c', textAlign: 'center' }}>Male</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#c0392b', textAlign: 'center' }}>Female</span>
+          </div>
+
+          {ROWS.map(row => {
+            const group = st[row.key]
+            const m = group.male ?? 0
+            const f = group.female ?? 0
+            if (m === 0 && f === 0) return null
+            return (
+              <div key={row.key} style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 60px 60px',
+                gap: 6,
+                marginBottom: 6,
+                alignItems: 'center'
+              }}>
+                <span style={{ fontSize: 12, color: '#444' }}>{row.label}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#1a6b3c', textAlign: 'center' }}>{m}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#c0392b', textAlign: 'center' }}>{f}</span>
+              </div>
+            )
+          })}
+
+          {/* Totals row */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 60px 60px',
+            gap: 6,
+            paddingTop: 8,
+            borderTop: '2px solid #1a6b3c',
+            marginTop: 4
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#1a6b3c' }}>Total</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#1a6b3c', textAlign: 'center' }}>
+              {extraction.totalRow.male ?? 0}
+            </span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#c0392b', textAlign: 'center' }}>
+              {extraction.totalRow.female ?? 0}
+            </span>
+          </div>
+        </div>
+
+        {/* Grand total */}
+        <div style={{
+          background: '#1a6b3c',
+          borderRadius: 10,
+          padding: '14px 16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20
+        }}>
+          <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>
+            Grand total (9–59 months)
+          </span>
+          <span style={{ color: '#fff', fontSize: 28, fontWeight: 700 }}>
+            {extraction.totalVaccinatedToday ?? 0}
+          </span>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button
+            className="btn-secondary"
+            onClick={onBack}
+            disabled={submitting}
+            style={{ flex: 1 }}
+          >
+            ← Edit
+          </button>
           <button
             className="btn-primary"
-            disabled={effectiveTotal() === null || submitting}
-            onClick={handleConfirmSubmit}
+            onClick={handleSubmit}
+            disabled={submitting}
+            style={{ flex: 2 }}
           >
-            {submitting ? 'Submitting…' : 'Submit to office'}
-          </button>
-          <button className="btn-secondary" onClick={onRetake} disabled={submitting}>
-            Retake photo
+            {submitting ? 'Submitting…' : 'Submit to office →'}
           </button>
         </div>
-      </section>
+      </div>
     </div>
   )
 }

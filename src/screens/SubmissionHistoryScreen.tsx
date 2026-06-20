@@ -7,19 +7,29 @@ interface Props {
   vaccinator: Vaccinator
   justSubmitted: TallySubmission | null
   onCampaignSwitch?: () => void
+  onNewSettlement?: () => void
 }
 
-export function SubmissionHistoryScreen({ campaign, vaccinator, justSubmitted, onCampaignSwitch }: Props) {
+export function SubmissionHistoryScreen({
+  campaign,
+  vaccinator,
+  justSubmitted,
+  onCampaignSwitch,
+  onNewSettlement
+}: Props) {
   const [history, setHistory] = useState<TallySubmission[]>([])
 
   useEffect(() => {
     getSubmissionsForVaccinator(vaccinator.id, campaign.id).then(setHistory)
   }, [vaccinator.id, campaign.id, justSubmitted])
 
-  const campaignTotal = history.reduce((sum, s) => {
-    const total = s.resolvedTotal ?? s.extraction.totalVaccinatedToday ?? 0
-    return sum + total
-  }, 0)
+  const today = new Date().toISOString().slice(0, 10)
+  const todaySubmissions = history.filter(s => s.submittedAt.slice(0, 10) === today)
+  const todayTotal = todaySubmissions.reduce((sum, s) =>
+    sum + (s.resolvedTotal ?? s.extraction.totalVaccinatedToday ?? 0), 0)
+
+  const campaignTotal = history.reduce((sum, s) =>
+    sum + (s.resolvedTotal ?? s.extraction.totalVaccinatedToday ?? 0), 0)
 
   return (
     <div className="history-screen">
@@ -30,40 +40,82 @@ export function SubmissionHistoryScreen({ campaign, vaccinator, justSubmitted, o
         </span>
       </div>
 
+      {/* Success banner */}
       {justSubmitted && (
         <div className="success-banner">
           <div className="success-icon">✓</div>
           <div className="success-title">Submitted to office</div>
-          <div className="success-sub">Synced just now · also saved on this phone</div>
+          <div className="success-sub">
+            {justSubmitted.settlement} · {justSubmitted.extraction.totalVaccinatedToday ?? 0} children
+          </div>
         </div>
       )}
 
-      <div className="done-banner">
-        You're done for today. Each team submits one sheet per day — come back tomorrow
-        to capture the next one.
-      </div>
+      {/* Today's total */}
+      {todaySubmissions.length > 0 && (
+        <div style={{
+          background: '#f0faf4', border: '1.5px solid #1a6b3c',
+          borderRadius: 10, padding: '14px 16px', marginBottom: 12,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <div>
+            <div style={{ fontSize: 12, color: '#1a6b3c', fontWeight: 600 }}>Today's total</div>
+            <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+              {todaySubmissions.length} settlement{todaySubmissions.length > 1 ? 's' : ''} submitted
+            </div>
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#1a6b3c' }}>
+            {todayTotal}
+          </div>
+        </div>
+      )}
 
+      {/* New settlement button */}
+      {onNewSettlement && (
+        <button
+          className="btn-primary"
+          onClick={onNewSettlement}
+          style={{ width: '100%', marginBottom: 16 }}
+        >
+          + Submit another settlement
+        </button>
+      )}
+
+      {/* History */}
       <div className="card">
         <h2 className="card-title">My submissions — {campaign.name}</h2>
-        {history.length === 0 && <p className="empty-state">No submissions yet this campaign.</p>}
+        {history.length === 0 && (
+          <p className="empty-state">No submissions yet this campaign.</p>
+        )}
         {history.map(sub => {
           const total = sub.resolvedTotal ?? sub.extraction.totalVaccinatedToday
           const dateLabel = new Date(sub.submittedAt).toLocaleDateString(undefined, {
-            month: 'short',
-            day: 'numeric'
+            month: 'short', day: 'numeric'
           })
+          const isToday = sub.submittedAt.slice(0, 10) === today
           return (
             <div className="sub-row" key={sub.id}>
               <div>
                 <div className="sub-row-title">
-                  {dateLabel} · {sub.settlement}
+                  {dateLabel} · <strong>{sub.settlement}</strong>
+                  {isToday && (
+                    <span style={{
+                      marginLeft: 6, fontSize: 10, background: '#e8f5e9',
+                      color: '#1a6b3c', borderRadius: 4, padding: '1px 5px',
+                      fontWeight: 600
+                    }}>Today</span>
+                  )}
                 </div>
                 <div className="sub-row-time">
-                  Submitted {new Date(sub.submittedAt).toLocaleTimeString(undefined, {
-                    hour: 'numeric',
-                    minute: '2-digit'
+                  {sub.ward} · Submitted {new Date(sub.submittedAt).toLocaleTimeString(undefined, {
+                    hour: 'numeric', minute: '2-digit'
                   })}
                 </div>
+                {sub.recorderName && (
+                  <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
+                    Recorder: {sub.recorderName}
+                  </div>
+                )}
               </div>
               <div className="sub-row-right">
                 <div className="sub-row-total">{total ?? '—'}</div>
@@ -74,6 +126,7 @@ export function SubmissionHistoryScreen({ campaign, vaccinator, justSubmitted, o
             </div>
           )
         })}
+
         {history.length > 0 && (
           <div className="total-row">
             <span>Campaign total so far</span>
@@ -85,10 +138,7 @@ export function SubmissionHistoryScreen({ campaign, vaccinator, justSubmitted, o
       {onCampaignSwitch && (
         <button
           className="switch-campaign-link"
-          onClick={() => {
-            switchCampaign()
-            onCampaignSwitch()
-          }}
+          onClick={() => { switchCampaign(); onCampaignSwitch() }}
         >
           Working on a different campaign? Switch here
         </button>

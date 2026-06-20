@@ -1,10 +1,6 @@
 // Core data types for VacciTrack.
-// These mirror the Core v1.1 extraction schema from the planning doc and
-// are written so they map 1:1 onto Firestore documents later — each type
-// here becomes a collection/document shape, no restructuring needed.
 
 export interface LocationHierarchy {
-  // state -> lga -> ward -> settlement[]
   [state: string]: {
     [lga: string]: {
       [ward: string]: string[]
@@ -14,15 +10,17 @@ export interface LocationHierarchy {
 
 export interface Campaign {
   id: string
-  name: string // e.g. "2024 Measles Campaign"
+  name: string
   active: boolean
-  reportingDeadline: string // "16:00" - 4:00 PM, 24h format
+  reportingDeadline: string
 }
 
 export interface Vaccinator {
   id: string
   name: string
   teamCode: string
+  phone: string
+  recorderName: string
 }
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low'
@@ -33,8 +31,6 @@ export interface AgeGroupTotals {
 }
 
 export interface ExtractedTallySheet {
-  // What the AI reads from the photo (Core v1.1 — totals only, no location,
-  // since location is selected by the vaccinator before the photo is taken)
   dateOnSheet: string | null
   subTotals: {
     zeroDose9to11: AgeGroupTotals
@@ -55,16 +51,18 @@ export interface TallySubmission {
   campaignId: string
   vaccinatorId: string
   teamCode: string
+  phone: string
+  recorderName: string
   state: string
   lga: string
   ward: string
   settlement: string
-  settlementIsCustom: boolean // true if vaccinator typed "Other"
-  submittedAt: string // ISO timestamp
-  photoUrl: string | null // local blob URL until synced, then storage URL
+  settlementIsCustom: boolean
+  submittedAt: string
+  photoUrl: string | null
   extraction: ExtractedTallySheet
   status: 'pending_sync' | 'synced' | 'needs_review' | 'resolved'
-  resolvedTotal: number | null // set by office staff if corrected
+  resolvedTotal: number | null
   resolvedBy: string | null
   resolvedAt: string | null
 }

@@ -1,44 +1,29 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { LocationPicker, type SelectedLocation } from '../components/LocationPicker'
-import { extractTallySheet } from '../data/aiExtraction'
-import type { Campaign, Vaccinator, ExtractedTallySheet } from '../types'
+import type { Campaign, Vaccinator } from '../types'
 
 interface Props {
   campaign: Campaign
   vaccinator: Vaccinator
-  onCaptured: (data: {
-    location: SelectedLocation
-    photoUrl: string | null
-    photoBlob: Blob | null
-    extraction: ExtractedTallySheet
-  }) => void
+  submittedSettlements: string[]
+  onCaptured: (location: SelectedLocation) => void
   onBack: () => void
 }
 
-export function CaptureScreen({ campaign, vaccinator, onCaptured, onBack }: Props) {
+export function CaptureScreen({ campaign, vaccinator, submittedSettlements, onCaptured, onBack }: Props) {
   const [location, setLocation] = useState<SelectedLocation | null>(null)
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
-  const [extracting, setExtracting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const locationReady = location !== null
+  const isDuplicate = location !== null && submittedSettlements.includes(location.settlement)
+  const canProceed = location !== null && !isDuplicate
 
-  function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !location) return
-    const url = URL.createObjectURL(file)
-    setPhotoUrl(url)
-    setExtracting(true)
-    runExtraction(file, url, location)
-  }
-
-  async function runExtraction(file: Blob, url: string, loc: SelectedLocation) {
-    const result = await extractTallySheet(file)
-    onCaptured({ location: loc, photoUrl: url, photoBlob: file, extraction: result })
+  function handleNext() {
+    if (!canProceed || !location) return
+    onCaptured(location)
   }
 
   return (
     <div className="capture-screen">
+      {/* Header */}
       <div className="campaign-tag">
         <button
           onClick={onBack}
@@ -58,6 +43,35 @@ export function CaptureScreen({ campaign, vaccinator, onCaptured, onBack }: Prop
         </span>
       </div>
 
+      {/* Step indicator */}
+      <div style={{
+        display: 'flex', gap: 8, padding: '12px 0 4px',
+        alignItems: 'center', fontSize: 12, color: '#888'
+      }}>
+        <span style={{
+          background: '#1a6b3c', color: '#fff',
+          borderRadius: '50%', width: 20, height: 20,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, fontWeight: 700, flexShrink: 0
+        }}>1</span>
+        <span style={{ color: '#1a6b3c', fontWeight: 600 }}>Select location</span>
+        <span style={{ margin: '0 4px' }}>›</span>
+        <span style={{ opacity: 0.5 }}>2 Enter numbers</span>
+        <span style={{ margin: '0 4px', opacity: 0.5 }}>›</span>
+        <span style={{ opacity: 0.5 }}>3 Review</span>
+      </div>
+
+      {/* Already submitted notice */}
+      {submittedSettlements.length > 0 && (
+        <div style={{
+          background: '#fff8e1', border: '1px solid #ffe082',
+          borderRadius: 8, padding: '10px 14px', marginBottom: 8, fontSize: 13
+        }}>
+          <strong>Already submitted today:</strong>{' '}
+          {submittedSettlements.join(', ')}
+        </div>
+      )}
+
       <section className="step">
         <h2 className="step-title">
           <span className="step-num">1</span> Confirm location for today
@@ -67,39 +81,36 @@ export function CaptureScreen({ campaign, vaccinator, onCaptured, onBack }: Prop
         </div>
       </section>
 
-      <section className="step">
-        <h2 className="step-title">
-          <span className="step-num">2</span> Snap the tally sheet
-        </h2>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handlePhotoSelected}
-          style={{ display: 'none' }}
-        />
-        <button
-          className={`snap-btn ${locationReady ? 'enabled' : ''}`}
-          disabled={!locationReady || extracting}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <span className="snap-icon" aria-hidden="true">📷</span>
-          <span>{extracting ? 'Reading totals…' : 'Take photo'}</span>
-        </button>
-        {!locationReady && (
-          <p className="lock-note">Select all fields above to unlock the camera</p>
-        )}
-      </section>
-
-      {extracting && (
-        <section className="step">
-          <div className="card extracting-card">
-            {photoUrl && <img src={photoUrl} alt="Captured tally sheet" className="photo-preview" />}
-            <p className="extracting-text">Reading totals row…</p>
-          </div>
-        </section>
+      {/* Duplicate warning */}
+      {isDuplicate && (
+        <div style={{
+          background: '#fff0f0', border: '1px solid #ffcdd2',
+          borderRadius: 8, padding: '10px 14px', marginBottom: 12,
+          fontSize: 13, color: '#c0392b'
+        }}>
+          ⚠ You have already submitted a tally sheet for <strong>{location?.settlement}</strong> today.
+          Please select a different settlement.
+        </div>
       )}
+
+      {/* Navigation buttons */}
+      <div style={{ display: 'flex', gap: 12, padding: '8px 0 32px' }}>
+        <button
+          className="btn-secondary"
+          onClick={onBack}
+          style={{ flex: 1 }}
+        >
+          ← Back
+        </button>
+        <button
+          className="btn-primary"
+          onClick={handleNext}
+          disabled={!canProceed}
+          style={{ flex: 2, opacity: canProceed ? 1 : 0.5 }}
+        >
+          Next → Enter numbers
+        </button>
+      </div>
     </div>
   )
 }
