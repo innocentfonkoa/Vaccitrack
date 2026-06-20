@@ -83,6 +83,12 @@ export function TallyEntryScreen({ onNext, onBack }: Props) {
 
   function validate(): boolean {
     const e: Record<string, string> = {}
+
+    // Photo is mandatory
+    if (!photoBlob) {
+      e['photo'] = 'You must take a photo of the tally sheet before continuing'
+    }
+
     let hasAnyData = false
     for (const row of ROWS) {
       const m = tally[row.key].male
@@ -143,7 +149,8 @@ export function TallyEntryScreen({ onNext, onBack }: Props) {
       {/* Photo section */}
       <section className="step">
         <h2 className="step-title">
-          <span className="step-num">1</span> Snap tally sheet (optional)
+          <span className="step-num">1</span> Snap tally sheet
+          <span style={{ color: '#c0392b', fontSize: 12, marginLeft: 6, fontWeight: 600 }}>* Required</span>
         </h2>
         <input
           ref={fileInputRef}
@@ -154,13 +161,21 @@ export function TallyEntryScreen({ onNext, onBack }: Props) {
           style={{ display: 'none' }}
         />
         <button
-          className="snap-btn enabled"
+          className={`snap-btn ${!photoBlob ? '' : 'enabled'}`}
           onClick={() => fileInputRef.current?.click()}
-          style={{ marginBottom: 8 }}
+          style={{
+            marginBottom: 8,
+            border: errors['photo'] ? '2px solid #c0392b' : undefined
+          }}
         >
           <span className="snap-icon" aria-hidden="true">📷</span>
-          <span>{photoUrl ? 'Retake photo' : 'Take photo'}</span>
+          <span>{photoUrl ? 'Retake photo' : 'Take photo of tally sheet'}</span>
         </button>
+        {errors['photo'] && !photoBlob && (
+          <p style={{ color: '#c0392b', fontSize: 13, margin: '4px 0 8px', fontWeight: 500 }}>
+            ⚠ {errors['photo']}
+          </p>
+        )}
         {photoUrl && (
           <img
             src={photoUrl}
@@ -168,6 +183,11 @@ export function TallyEntryScreen({ onNext, onBack }: Props) {
             className="photo-preview"
             style={{ marginTop: 8 }}
           />
+        )}
+        {photoUrl && (
+          <p style={{ color: '#1a6b3c', fontSize: 12, marginTop: 6, fontWeight: 600 }}>
+            ✓ Photo captured
+          </p>
         )}
       </section>
 
