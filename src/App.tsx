@@ -113,6 +113,7 @@ export default function App() {
         justSubmitted={justSubmitted}
         onCampaignSwitch={() => { setCampaign(null); setNeedsCampaignSelection(true); setStep('location'); setJustSubmitted(null) }}
         onNewSettlement={handleNewSettlement}
+        onProfileUpdated={v => setVaccinator(v)}
       />
     )
   }
