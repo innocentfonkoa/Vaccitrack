@@ -31,8 +31,8 @@ const SUBMISSIONS_COLLECTION = 'submissions'
 // Firestore 'campaigns' collection — the function signatures below already
 // match what that change would look like (all async, same return shapes).
 const CAMPAIGNS: Campaign[] = [
-  { id: 'measles-2024', name: '2024 Measles Campaign', active: true, reportingDeadline: '16:00' },
-  { id: 'polio-2026', name: '2026 Polio Campaign', active: true, reportingDeadline: '16:00' }
+  { id: 'measles-2024', name: '2024 Measles Campaign', active: true, reportingDeadline: '20:00' },
+  { id: 'polio-2026', name: '2026 Polio Campaign', active: true, reportingDeadline: '20:00' }
 ]
 
 export async function getCampaigns(): Promise<Campaign[]> {

@@ -114,12 +114,17 @@ export default function DashboardScreen({ user }: Props) {
   const [selectedDate, setSelectedDate] = useState(todayStr())
   const [lgaFilter, setLgaFilter] = useState('all')
   const [wardFilter, setWardFilter] = useState('all')
+  const [settlementFilter, setSettlementFilter] = useState('all')
 
   // LGA list — all Kano LGAs from hardcoded hierarchy
   const allLGAs = Object.keys(KANO_HIERARCHY).sort()
   // Ward list — from selected LGA (or user's LGA for lga_staff)
   const lgaForWards = lgaFilter !== 'all' ? lgaFilter : (user.role === 'lga_staff' ? user.lga ?? '' : '')
   const wardsForLGA = lgaForWards ? (KANO_HIERARCHY[lgaForWards] ?? []).sort() : []
+  // Settlement list — from actual submissions for the selected ward
+  const settlementsForWard = wardFilter !== 'all'
+    ? [...new Set(allSubmissions.filter(s => s.ward === wardFilter).map(s => s.settlement))].sort()
+    : []
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -137,13 +142,15 @@ export default function DashboardScreen({ user }: Props) {
 
   useEffect(() => { load() }, [load])
   useEffect(() => { const i = setInterval(load, 120000); return () => clearInterval(i) }, [load])
-  useEffect(() => { setWardFilter('all') }, [lgaFilter])
+  useEffect(() => { setWardFilter('all'); setSettlementFilter('all') }, [lgaFilter])
+  useEffect(() => { setSettlementFilter('all') }, [wardFilter])
 
   const filtered = allSubmissions.filter(s => {
     const dateMatch = s.submittedAt?.slice(0, 10) === selectedDate
     const lgaMatch = user.role === 'lga_staff' ? s.lga === user.lga : lgaFilter === 'all' || s.lga === lgaFilter
     const wardMatch = wardFilter === 'all' || s.ward === wardFilter
-    return dateMatch && lgaMatch && wardMatch
+    const settlementMatch = settlementFilter === 'all' || s.settlement === settlementFilter
+    return dateMatch && lgaMatch && wardMatch && settlementMatch
   })
 
   const stats = computeDashboardStats(filtered)
@@ -168,7 +175,7 @@ export default function DashboardScreen({ user }: Props) {
   ].filter(d => d.value > 0)
 
   const now = new Date()
-  const deadlineMin = 16 * 60 - (now.getHours() * 60 + now.getMinutes())
+  const deadlineMin = 20 * 60 - (now.getHours() * 60 + now.getMinutes())
   const breadcrumb = [user.state, user.role === 'lga_staff' ? user.lga : lgaFilter !== 'all' ? lgaFilter : null, wardFilter !== 'all' ? wardFilter : null].filter(Boolean).join(' → ')
 
   return (
@@ -193,7 +200,7 @@ export default function DashboardScreen({ user }: Props) {
               <button onClick={load} style={{ marginLeft: 6, background: 'none', border: 'none', color: GREEN, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>↻ Refresh</button>
             </span>
             <div style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, background: deadlineMin < 0 ? '#fff0f0' : '#fff8e1', color: deadlineMin < 0 ? RED : ORANGE }}>
-              {deadlineMin < 0 ? 'Reporting closed' : `Deadline 16:00 · ${Math.floor(deadlineMin / 60)}h ${deadlineMin % 60}m`}
+              {deadlineMin < 0 ? 'Reporting closed' : `Deadline 20:00 · ${Math.floor(deadlineMin / 60)}h ${deadlineMin % 60}m`}
             </div>
           </div>
         </div>
@@ -242,6 +249,12 @@ export default function DashboardScreen({ user }: Props) {
               <select value={wardFilter} onChange={e => setWardFilter(e.target.value)} style={sel}>
                 <option value="all">All Wards</option>
                 {wardsForLGA.map(w => <option key={w} value={w}>{w}</option>)}
+              </select>
+            )}
+            {wardFilter !== 'all' && settlementsForWard.length > 0 && (
+              <select value={settlementFilter} onChange={e => setSettlementFilter(e.target.value)} style={sel}>
+                <option value="all">All Settlements</option>
+                {settlementsForWard.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             )}
           </div>
