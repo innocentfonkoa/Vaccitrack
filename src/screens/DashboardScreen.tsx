@@ -266,7 +266,7 @@ export default function DashboardScreen({ user }: Props) {
             {/* KPI Cards */}
             <div style={{ display: 'flex', gap: 14, marginBottom: 22, flexWrap: 'wrap' }}>
               <KPICard label="Vaccinated" value={stats.vaccinatedToday.toLocaleString()} sub="children" accent={GREEN} />
-              <KPICard label="Coverage" value={`${stats.vaccinatedToday > 0 ? Math.min(100, Math.round((stats.vaccinatedToday / (stats.vaccinatedToday * 1.3)) * 100)) : 0}%`} sub="vs target (est.)" />
+              <KPICard label="Settlements reached" value={[...new Set(filtered.map(s => s.settlement))].length} sub="today" accent={GREEN} />
               <KPICard label="Sheets submitted" value={stats.sheetsSubmitted} sub={primaryLabel} />
               <KPICard label="Flagged for review" value={stats.flaggedForReview} sub="low confidence" accent={stats.flaggedForReview > 0 ? ORANGE : '#111'} />
             </div>
